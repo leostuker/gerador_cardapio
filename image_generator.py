@@ -106,10 +106,10 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
         txt_draw = ImageDraw.Draw(txt_img)
         txt_draw.text((5, 5), stamp_text, font=font_stamp, fill=color_stamp_green)
         rotated = txt_img.rotate(-15, expand=True, resample=Image.BICUBIC)
-        # Position: top-right corner, between title and date, clear of everything
-        stamp_x = width - rotated.width - 80
-        stamp_y = 55
-        img.paste(rotated, (stamp_x, stamp_y), rotated)
+        # Position: Overlap the right side of the title
+        stamp_x = title_x + title_w - 80
+        stamp_y = 15
+        img.paste(rotated, (int(stamp_x), int(stamp_y)), rotated)
 
     # =========================================================
     # GRID AREA — NO GAPS between columns or rows
