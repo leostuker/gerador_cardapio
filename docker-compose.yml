@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  gerador-cardapio:
+    build: .
+    container_name: gerador-cardapio
+    ports:
+      - "1519:5000"
+    volumes:
+      - ./static/output:/app/static/output
+    restart: always

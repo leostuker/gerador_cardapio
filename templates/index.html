@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Cardápio</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #1b5a32; }
+        label { font-weight: bold; display: block; margin-top: 15px; }
+        textarea, input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        textarea { height: 300px; font-family: monospace; }
+        button { background: #e28b17; color: white; border: none; padding: 15px 20px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; margin-top: 20px; width: 100%; }
+        button:hover { background: #d27914; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Gerador de Cardápio Escolar</h1>
+        <form method="POST">
+            <label for="date_str">Data Sugerida (Confirme ou Edite):</label>
+            <input type="text" id="date_str" name="date_str" value="{{ date_str }}">
+            
+            <label for="menu_text">Cole o texto do cardápio aqui:</label>
+            <textarea id="menu_text" name="menu_text" placeholder="**Cardápio Integral**&#10;**Segunda-feira**&#10;Lanche&#10;* Leite com chocolate..."></textarea>
+            
+            <button type="submit">Gerar Imagens</button>
+        </form>
+    </div>
+</body>
+</html>
