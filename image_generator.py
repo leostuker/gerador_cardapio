@@ -3,13 +3,33 @@ from PIL import Image, ImageDraw, ImageFont
 
 def draw_text_centered(draw, text, box, font, fill):
     x, y, w, h = box
-    # get bbox
     bbox = font.getbbox(text)
     tw = bbox[2] - bbox[0]
     th = bbox[3] - bbox[1]
     tx = x + (w - tw) / 2
     ty = y + (h - th) / 2 - bbox[1]
     draw.text((tx, ty), text, font=font, fill=fill)
+
+def wrap_text(text, font, max_width):
+    words = text.split()
+    lines = []
+    current_line = []
+    for word in words:
+        test_line = ' '.join(current_line + [word])
+        bbox = font.getbbox(test_line)
+        w = bbox[2] - bbox[0]
+        if w <= max_width:
+            current_line.append(word)
+        else:
+            if current_line:
+                lines.append(' '.join(current_line))
+                current_line = [word]
+            else:
+                lines.append(word)
+                current_line = []
+    if current_line:
+        lines.append(' '.join(current_line))
+    return lines
 
 def generate_menu_image(menu_title, date_str, menu_data, output_path):
     width, height = 1080, 1350
@@ -19,11 +39,11 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
 
     # Load fonts
     font_title = ImageFont.truetype('static/fonts/Martel-Bold.ttf', 70)
-    font_date = ImageFont.truetype('static/fonts/Assistant-Bold.ttf', 30)
+    font_date = ImageFont.truetype('static/fonts/Assistant-Bold.ttf', 28)
     font_day = ImageFont.truetype('static/fonts/Assistant-Regular.ttf', 40)
     font_meal_title = ImageFont.truetype('static/fonts/Assistant-Bold.ttf', 28)
     font_meal_item = ImageFont.truetype('static/fonts/Assistant-Regular.ttf', 26)
-    font_stamp = ImageFont.truetype('static/fonts/Balmy.ttf', 60)
+    font_stamp = ImageFont.truetype('static/fonts/Balmy.ttf', 70)
 
     # Colors
     color_green = '#1b5a32'
@@ -35,35 +55,32 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
     # Logo
     try:
         logo = Image.open('static/logo.png').convert("RGBA")
-        logo.thumbnail((250, 250))
-        img.paste(logo, (50, 30), logo)
+        logo.thumbnail((160, 160)) # Reduced logo size
+        img.paste(logo, (80, 50), logo)
     except Exception as e:
         print("Logo not found or error:", e)
 
     # Title
-    draw.text((320, 70), "Cardápio Semanal", font=font_title, fill=color_orange)
-    draw.text((330, 160), date_str.upper(), font=font_date, fill=color_green)
+    draw.text((280, 80), "Cardápio Semanal", font=font_title, fill=color_orange)
+    draw.text((290, 170), date_str.upper(), font=font_date, fill=color_green)
 
     # Stamp for Daniel or Integral
     if 'DANIEL' in menu_title.upper() or 'INTEGRAL' in menu_title.upper():
         stamp_text = 'DANIEL' if 'DANIEL' in menu_title.upper() else 'INTEGRAL'
         # Create transparent image for rotated text
-        txt_img = Image.new('RGBA', (300, 100), (255,255,255,0))
+        txt_img = Image.new('RGBA', (400, 150), (255,255,255,0))
         txt_draw = ImageDraw.Draw(txt_img)
         txt_draw.text((10, 10), stamp_text, font=font_stamp, fill=color_green)
         rotated = txt_img.rotate(15, expand=1)
-        img.paste(rotated, (750, 50), rotated)
+        img.paste(rotated, (740, 20), rotated)
 
     # Grid settings
     margin_x, margin_y = 50, 260
-    col_w, col_h = 310, 520
+    col_w, col_h = 310, 1050 / 2 - 20
     gap_x, gap_y = 25, 25
 
     days = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira']
-    # If the text has only "Segunda-feira", etc, we must map them
-    # the parser might have captured them exactly as they are.
     
-    # Let's find the actual keys in menu_data
     actual_days = list(menu_data.keys())
 
     boxes = [
@@ -83,7 +100,6 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
         if i < 5:
             # It's a day
             day_key = days[i]
-            # Try to match day_key loosely
             matched_key = None
             for k in actual_days:
                 if k.lower().startswith(day_key.split('-')[0].lower()):
@@ -104,9 +120,10 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
                     draw_text_centered(draw, meal, (x, current_y, col_w, 30), font_meal_title, color_green)
                     current_y += 35
                     for item in items:
-                        # centered item text
-                        draw_text_centered(draw, item, (x, current_y, col_w, 30), font_meal_item, color_green)
-                        current_y += 30
+                        lines = wrap_text(item, font_meal_item, col_w - 40)
+                        for line in lines:
+                            draw_text_centered(draw, line, (x, current_y, col_w, 20), font_meal_item, color_green)
+                            current_y += 28
                     current_y += 10
         else:
             # Avisos importantes
@@ -124,10 +141,9 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
                 "Os lanches da manhã e\n"
                 "da tarde são o mesmo."
             )
-            # draw multi-line centered
-            ay = y + 130
+            ay = y + 150
             for line in avisos_text.split('\n'):
-                draw_text_centered(draw, line, (x, ay, col_w, 30), font_meal_item, color_green)
-                ay += 30
+                draw_text_centered(draw, line, (x, ay, col_w, 20), font_meal_item, color_green)
+                ay += 32
 
     img.save(output_path)

@@ -5,7 +5,7 @@ fonts = {
     'Martel-Bold.ttf': 'https://raw.githubusercontent.com/google/fonts/main/ofl/martel/Martel-Bold.ttf',
     'Assistant-Regular.ttf': 'https://raw.githubusercontent.com/googlefonts/roboto/main/src/hinted/Roboto-Regular.ttf',
     'Assistant-Bold.ttf': 'https://raw.githubusercontent.com/googlefonts/roboto/main/src/hinted/Roboto-Bold.ttf',
-    'Balmy.ttf': 'https://raw.githubusercontent.com/google/fonts/main/ofl/pacifico/Pacifico-Regular.ttf'
+    'Balmy.ttf': 'https://raw.githubusercontent.com/google/fonts/main/apache/permanentmarker/PermanentMarker-Regular.ttf'
 }
 
 os.makedirs('static/fonts', exist_ok=True)
