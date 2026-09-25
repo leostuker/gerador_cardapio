@@ -8,6 +8,7 @@ def get_font(name, size):
     font_map = {
         'title': 'Martel-Bold.ttf',
         'assistant': 'assistant-latin-500-normal.ttf',
+        'assistant_bold': 'Assistant-Bold.ttf',
         'stamp': 'Balmy Beta.ttf',
     }
     path = os.path.join(FONTS_DIR, font_map.get(name, name))
@@ -56,10 +57,10 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
     font_title = get_font('title', 60)
     font_date = get_font('assistant', 24)
     font_day_header = get_font('assistant', 34)
-    font_meal_label = get_font('assistant', 22)
+    font_meal_label = get_font('assistant_bold', 22)
     font_meal_item = get_font('assistant', 20)
     font_stamp = get_font('stamp', 44)
-    font_avisos_title = get_font('assistant', 24)
+    font_avisos_title = get_font('assistant_bold', 24)
     font_avisos_text = get_font('assistant', 20)
 
     # === Colors ===
@@ -81,12 +82,19 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
     except Exception as e:
         print("Logo not found or error:", e)
 
-    # Title "Cardápio Semanal"
-    title_x = 165
-    draw.text((title_x, 35), "Cardápio Semanal", font=font_title, fill=color_orange)
+    # Title "Cardápio Semanal" (Centered)
+    title_text = "Cardápio Semanal"
+    title_bbox = font_title.getbbox(title_text)
+    title_w = title_bbox[2] - title_bbox[0]
+    title_x = (width - title_w) / 2
+    draw.text((title_x, 35), title_text, font=font_title, fill=color_orange)
 
-    # Date string below title
-    draw.text((title_x, 110), date_str.upper(), font=font_date, fill=color_green)
+    # Date string below title (Centered)
+    date_text = date_str.upper()
+    date_bbox = font_date.getbbox(date_text)
+    date_w = date_bbox[2] - date_bbox[0]
+    date_x = (width - date_w) / 2
+    draw.text((date_x, 110), date_text, font=font_date, fill=color_green)
 
     # Stamp (tag style) — only for Daniel or Integral
     is_daniel = 'DANIEL' in menu_title.upper()
@@ -97,7 +105,7 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
         txt_img = Image.new('RGBA', (350, 80), (255, 255, 255, 0))
         txt_draw = ImageDraw.Draw(txt_img)
         txt_draw.text((5, 5), stamp_text, font=font_stamp, fill=color_stamp_green)
-        rotated = txt_img.rotate(15, expand=True, resample=Image.BICUBIC)
+        rotated = txt_img.rotate(-15, expand=True, resample=Image.BICUBIC)
         # Position: top-right corner, between title and date, clear of everything
         stamp_x = width - rotated.width - 80
         stamp_y = 55
@@ -111,10 +119,10 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
     grid_right = width - 35
     grid_total_w = grid_right - grid_left
     num_cols = 3
-    col_w = grid_total_w // num_cols
-    row_gap = 12  # small visual gap between top and bottom row only
+    col_w = grid_total_w / num_cols
+    row_gap = 0
     total_grid_h = height - grid_top - 30
-    row_h = (total_grid_h - row_gap) // 2
+    row_h = total_grid_h / 2
 
     days = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira']
     actual_days = list(menu_data.keys())
@@ -132,11 +140,14 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
     text_padding = 18
 
     for i, (col, row) in enumerate(grid_positions):
-        # Columns touching: no gap_x
-        bx = grid_left + col * col_w
-        by = grid_top + row * (row_h + row_gap)
-        bw = col_w
-        bh = row_h
+        # Columns and rows touching perfectly
+        bx = grid_left + int(col * col_w)
+        bx_next = grid_left + int((col + 1) * col_w)
+        bw = bx_next - bx
+        
+        by = grid_top + int(row * row_h)
+        by_next = grid_top + int((row + 1) * row_h)
+        bh = by_next - by
 
         box_bg = get_box_color(col, row)
         draw.rectangle([bx, by, bx + bw, by + bh], fill=box_bg)
@@ -198,18 +209,11 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
 
         else:
             # === AVISOS IMPORTANTES ===
-            line_y_top = by + 22
-            draw.line([(inner_left, line_y_top), (inner_right, line_y_top)],
-                      fill=color_green, width=3)
-
-            title_y = line_y_top + 8
+            # No lines at the top or bottom
+            title_y = by + 30
             draw_text_centered(draw, "Avisos importantes",
                                (bx, title_y, bw, 40),
                                font_avisos_title, color_green)
-
-            line_y_bot = title_y + 44
-            draw.line([(inner_left, line_y_bot), (inner_right, line_y_bot)],
-                      fill=color_green, width=3)
 
             avisos_lines = [
                 "O cardápio está sujeito",
@@ -220,9 +224,9 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
                 "frescos.",
                 "",
                 "Os lanches da manhã e",
-                "da tarde são o mesmo.",
+                "da tarde são o mesmo",
             ]
-            ay = line_y_bot + 18
+            ay = title_y + 44 + 18
             for line in avisos_lines:
                 if line == "":
                     ay += 14
