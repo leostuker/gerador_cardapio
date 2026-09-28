@@ -1,10 +1,50 @@
 import os
-from PIL import Image, ImageDraw, ImageFont
+import random
+import unicodedata
+from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageColor
 
 FONTS_DIR = 'static/fonts'
 
+# =========================================================
+# CONFIGURAÇÃO DO LAYOUT (mesma proporção da imagem-objetivo)
+# =========================================================
+WIDTH, HEIGHT = 1236, 1600
+HEADER_H = 300                 # altura da faixa branca do topo
+
+COLOR_BG = '#fffdf6'           # fundo do cabeçalho
+COLOR_GREEN = '#4a6b2c'        # textos, linhas e carimbo
+COLOR_ORANGE = '#f6931d'       # título
+COLOR_YELLOW = '#f2ae1c'       # caixas amarelas
+COLOR_CREAM = '#fdecc8'        # caixas creme
+
+ITEM_SIZE = 28                 # tamanho base da fonte dos itens
+LINE_PITCH = 39                # distância entre linhas dos itens
+MEAL_GAP = 18                  # espaço extra entre Lanche e Almoço
+FIRST_BASELINE = 196           # 1ª linha de texto, a partir do topo da caixa
+BOTTOM_PAD = 22                # folga mínima no fim da caixa
+CELL_TEXT_PAD = 34             # margem lateral do texto nas caixas
+CELL_LINE_PAD = 42             # margem lateral das linhas decorativas
+
+AVISOS_LINES = [
+    "O cardápio está sujeito",
+    "a ser alterado sem",
+    "aviso prévio, pois",
+    "dependemos da",
+    "entrega dos alimentos",
+    "frescos.",
+    "",
+    "Os lanches da manhã e",
+    "da tarde são o mesmo",
+]
+
+_font_cache = {}
+
+
 def get_font(name, size):
     """Load font by name. Maps logical names to actual font files."""
+    key = (name, size)
+    if key in _font_cache:
+        return _font_cache[key]
     font_map = {
         'title': 'Martel-Bold.ttf',
         'assistant': 'assistant-latin-500-normal.ttf',
@@ -12,16 +52,36 @@ def get_font(name, size):
         'stamp': 'Balmy Beta.ttf',
     }
     path = os.path.join(FONTS_DIR, font_map.get(name, name))
-    return ImageFont.truetype(path, size)
+    font = ImageFont.truetype(path, size)
+    _font_cache[key] = font
+    return font
 
 
-def draw_text_centered(draw, text, box, font, fill):
-    """Draw text centered within a box (x, y, w, h). y is top of text."""
-    x, y, w, h = box
-    bbox = font.getbbox(text)
-    tw = bbox[2] - bbox[0]
-    tx = x + (w - tw) / 2
-    draw.text((tx, y), text, font=font, fill=fill)
+def font_for_width(name, text, target_w):
+    """Return the font whose rendering of `text` is ~target_w pixels wide."""
+    probe = get_font(name, 100)
+    size = max(8, int(100 * target_w / probe.getlength(text)))
+    return get_font(name, size)
+
+
+def text_width(text, font, tracking=0):
+    if not text:
+        return 0
+    if tracking == 0:
+        return font.getlength(text)
+    return sum(font.getlength(c) for c in text) + tracking * (len(text) - 1)
+
+
+def draw_centered(draw, text, cx, baseline, font, fill, tracking=0):
+    """Draw text horizontally centered on cx, sitting on the given baseline.
+    `tracking` adds extra letter-spacing (px)."""
+    if tracking == 0:
+        draw.text((cx, baseline), text, font=font, fill=fill, anchor='ms')
+        return
+    x = cx - text_width(text, font, tracking) / 2
+    for ch in text:
+        draw.text((x, baseline), ch, font=font, fill=fill, anchor='ls')
+        x += font.getlength(ch) + tracking
 
 
 def wrap_text(text, font, max_width):
@@ -30,209 +90,220 @@ def wrap_text(text, font, max_width):
     if not words:
         return ['']
     lines = []
-    current_line = []
+    current = []
     for word in words:
-        test_line = ' '.join(current_line + [word])
-        bbox = font.getbbox(test_line)
-        w = bbox[2] - bbox[0]
-        if w <= max_width:
-            current_line.append(word)
+        test = ' '.join(current + [word])
+        if font.getlength(test) <= max_width:
+            current.append(word)
         else:
-            if current_line:
-                lines.append(' '.join(current_line))
-            current_line = [word]
-    if current_line:
-        lines.append(' '.join(current_line))
-    return lines if lines else ['']
+            if current:
+                lines.append(' '.join(current))
+            current = [word]
+    if current:
+        lines.append(' '.join(current))
+    return lines or ['']
 
 
+def _norm(s):
+    """lowercase + sem acentos, para comparar nomes de dias."""
+    s = unicodedata.normalize('NFD', s.lower())
+    return ''.join(c for c in s if unicodedata.category(c) != 'Mn')
+
+
+# =========================================================
+# CARIMBO (INTEGRAL / DANIEL)
+# =========================================================
+def make_stamp(text, color, angle=-12, seed=7):
+    """Retângulo com borda dupla + texto, com desgaste de carimbo, já girado."""
+    # tamanho fixado pela largura de "INTEGRAL" (~215px) -> igual p/ Daniel e Integral
+    font = font_for_width('stamp', 'INTEGRAL', 215)
+    bbox = font.getbbox(text)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    pad_x, pad_y, margin = 30, 20, 12
+    bw, bh = tw + 2 * pad_x, th + 2 * pad_y
+    size = (bw + 2 * margin, bh + 2 * margin)
+
+    rgb = ImageColor.getrgb(color)
+    layer = Image.new('RGBA', size, rgb + (0,))
+    d = ImageDraw.Draw(layer)
+    d.rectangle([margin, margin, margin + bw, margin + bh], outline=color, width=6)
+    d.rectangle([margin + 11, margin + 11, margin + bw - 11, margin + bh - 11],
+                outline=color, width=2)
+    d.text((margin + pad_x - bbox[0], margin + pad_y - bbox[1]), text,
+           font=font, fill=color)
+
+    # desgaste: pontinhos e riscos transparentes (determinístico)
+    rng = random.Random(seed)
+    mask = Image.new('L', size, 255)
+    md = ImageDraw.Draw(mask)
+    for _ in range((size[0] * size[1]) // 90):
+        x, y = rng.randrange(size[0]), rng.randrange(size[1])
+        r = rng.choice((1, 1, 1, 2, 2, 3))
+        md.ellipse([x - r, y - r, x + r, y + r], fill=0)
+    for _ in range(12):
+        x, y = rng.randrange(size[0]), rng.randrange(size[1])
+        md.line([(x, y), (x + rng.randint(-25, 25), y + rng.randint(-6, 6))],
+                fill=0, width=rng.choice((1, 2)))
+    layer.putalpha(ImageChops.multiply(layer.getchannel('A'), mask))
+
+    return layer.rotate(angle, expand=True, resample=Image.BICUBIC,
+                        fillcolor=rgb + (0,))
+
+
+# =========================================================
+# LAYOUT DAS CAIXAS DOS DIAS
+# =========================================================
+def layout_day(day_data, scale, max_w):
+    size = max(12, round(ITEM_SIZE * scale))
+    f_item = get_font('assistant', size)
+    f_label = get_font('assistant_bold', size)
+    lines = []
+    for meal, items in day_data.items():
+        if lines:
+            lines.append(('gap', ''))
+        lines.append(('label', meal))
+        for item in items:
+            for l in wrap_text(item, f_item, max_w):
+                lines.append(('item', l))
+    return lines, f_item, f_label, size
+
+
+def day_fits(lines, size, scale, cell_h):
+    pitch, gap = LINE_PITCH * scale, MEAL_GAP * scale
+    y = FIRST_BASELINE
+    last = y
+    for kind, _ in lines:
+        if kind == 'gap':
+            y += gap
+        else:
+            last = y
+            y += pitch
+    return last + size * 0.28 <= cell_h - BOTTOM_PAD
+
+
+def find_scale(days_data, max_w, cell_h):
+    """Maior escala (<=1) em que TODOS os dias cabem -> fonte igual em todas as caixas."""
+    scale = 1.0
+    while scale > 0.5:
+        ok = True
+        for dd in days_data:
+            lines, _, _, size = layout_day(dd, scale, max_w)
+            if not day_fits(lines, size, scale, cell_h):
+                ok = False
+                break
+        if ok:
+            return scale
+        scale -= 0.03
+    return 0.5
+
+
+# =========================================================
+# IMAGEM PRINCIPAL
+# =========================================================
 def generate_menu_image(menu_title, date_str, menu_data, output_path):
-    # === Canvas ===
-    width, height = 1080, 1350
-    bg_color = '#fdf8f0'
-    img = Image.new('RGB', (width, height), color=bg_color)
+    W, H = WIDTH, HEIGHT
+    img = Image.new('RGB', (W, H), color=COLOR_BG)
     draw = ImageDraw.Draw(img)
 
-    # === Load fonts ===
-    font_title = get_font('title', 60)
-    font_date = get_font('assistant', 24)
-    font_day_header = get_font('assistant', 34)
-    font_meal_label = get_font('assistant_bold', 22)
-    font_meal_item = get_font('assistant', 20)
-    font_stamp = get_font('stamp', 44)
-    font_avisos_title = get_font('assistant_bold', 24)
-    font_avisos_text = get_font('assistant', 20)
+    # ---------- CABEÇALHO ----------
+    # Título
+    title_text = "Cardápio Semanal"
+    title_cx, title_baseline = 646, 148
+    font_title = font_for_width('title', title_text, 768)
+    draw.text((title_cx, title_baseline), title_text, font=font_title,
+              fill=COLOR_ORANGE, anchor='ms')
 
-    # === Colors ===
-    color_green = '#1b5a32'
-    color_orange = '#e28b17'
-    color_yellow = '#f0b731'
-    color_cream = '#faf0d8'
-    color_stamp_green = '#2d6b3f'
+    # Data (caixa alta, com espaçamento entre letras; encolhe se ficar longa)
+    date_text = date_str.upper()
+    date_size, date_tracking = 40, 3
+    font_date = get_font('assistant', date_size)
+    while text_width(date_text, font_date, date_tracking) > 640 and date_size > 20:
+        date_size -= 2
+        font_date = get_font('assistant', date_size)
+    draw_centered(draw, date_text, title_cx, 216, font_date, COLOR_GREEN,
+                  tracking=date_tracking)
 
-    # =========================================================
-    # HEADER AREA (top ~210px)
-    # =========================================================
-
-    # Logo (small, top-left)
+    # Logo
     try:
         logo = Image.open('static/logo.png').convert("RGBA")
-        logo.thumbnail((110, 110))
-        img.paste(logo, (35, 25), logo)
+        logo.thumbnail((150, 150))
+        img.paste(logo, (68, 80), logo)
     except Exception as e:
         print("Logo not found or error:", e)
 
-    # Title "Cardápio Semanal" (Centered)
-    title_text = "Cardápio Semanal"
-    title_bbox = font_title.getbbox(title_text)
-    title_w = title_bbox[2] - title_bbox[0]
-    title_x = (width - title_w) / 2
-    draw.text((title_x, 35), title_text, font=font_title, fill=color_orange)
+    # Carimbo — só para Daniel ou Integral
+    upper_title = menu_title.upper()
+    stamp_text = None
+    if 'DANIEL' in upper_title:
+        stamp_text = 'DANIEL'
+    elif 'INTEGRAL' in upper_title:
+        stamp_text = 'INTEGRAL'
+    if stamp_text:
+        stamp = make_stamp(stamp_text, COLOR_GREEN)
+        sx = int(W - 131 - stamp.width / 2)
+        sy = int(195 - stamp.height / 2)
+        img.paste(stamp, (sx, sy), stamp)
 
-    # Date string below title (Centered)
-    date_text = date_str.upper()
-    date_bbox = font_date.getbbox(date_text)
-    date_w = date_bbox[2] - date_bbox[0]
-    date_x = (width - date_w) / 2
-    draw.text((date_x, 110), date_text, font=font_date, fill=color_green)
-
-    # Stamp (tag style) — only for Daniel or Integral
-    is_daniel = 'DANIEL' in menu_title.upper()
-    is_integral = 'INTEGRAL' in menu_title.upper()
-
-    if is_daniel or is_integral:
-        stamp_text = 'DANIEL' if is_daniel else 'INTEGRAL'
-        txt_img = Image.new('RGBA', (350, 80), (255, 255, 255, 0))
-        txt_draw = ImageDraw.Draw(txt_img)
-        txt_draw.text((5, 5), stamp_text, font=font_stamp, fill=color_stamp_green)
-        rotated = txt_img.rotate(-15, expand=True, resample=Image.BICUBIC)
-        # Position: Overlap the right side of the title
-        stamp_x = title_x + title_w - 80
-        stamp_y = 15
-        img.paste(rotated, (int(stamp_x), int(stamp_y)), rotated)
-
-    # =========================================================
-    # GRID AREA — NO GAPS between columns or rows
-    # =========================================================
-    grid_top = 200
-    grid_left = 35
-    grid_right = width - 35
-    grid_total_w = grid_right - grid_left
-    num_cols = 3
-    col_w = grid_total_w / num_cols
-    row_gap = 0
-    total_grid_h = height - grid_top - 30
-    row_h = total_grid_h / 2
-
+    # ---------- GRADE (sem margens, colada nas bordas) ----------
+    row_h = (H - HEADER_H) / 2
     days = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira']
-    actual_days = list(menu_data.keys())
+    keys = list(menu_data.keys())
 
-    grid_positions = [
-        (0, 0), (1, 0), (2, 0),
-        (0, 1), (1, 1), (2, 1),
-    ]
+    # associa cada dia a uma chave do texto colado (ignora acentos)
+    day_datas = []
+    for day in days:
+        prefix = _norm(day.split('-')[0])
+        match = next((k for k in keys if _norm(k).startswith(prefix)), None)
+        day_datas.append(menu_data.get(match, {}) if match else {})
 
-    def get_box_color(col, row):
-        if (col + row) % 2 == 0:
-            return color_yellow
-        return color_cream
+    cell_w = W / 3
+    cell_h = int(row_h)
+    max_text_w = cell_w - 2 * CELL_TEXT_PAD
+    scale = find_scale(day_datas, max_text_w, cell_h)
 
-    text_padding = 18
+    font_day = get_font('assistant', 44)
 
-    for i, (col, row) in enumerate(grid_positions):
-        # Columns and rows touching perfectly
-        bx = grid_left + int(col * col_w)
-        bx_next = grid_left + int((col + 1) * col_w)
-        bw = bx_next - bx
-        
-        by = grid_top + int(row * row_h)
-        by_next = grid_top + int((row + 1) * row_h)
-        bh = by_next - by
+    for i in range(6):
+        col, row = i % 3, i // 3
+        x0, x1 = round(col * cell_w), round((col + 1) * cell_w)
+        y0 = HEADER_H + round(row * row_h)
+        y1 = HEADER_H + round((row + 1) * row_h)
+        cx = (x0 + x1) / 2
 
-        box_bg = get_box_color(col, row)
-        draw.rectangle([bx, by, bx + bw, by + bh], fill=box_bg)
-
-        inner_left = bx + text_padding
-        inner_right = bx + bw - text_padding
-        inner_w = inner_right - inner_left
+        bg = COLOR_YELLOW if (col + row) % 2 == 0 else COLOR_CREAM
+        draw.rectangle([x0, y0, x1 - 1, y1 - 1], fill=bg)
 
         if i < 5:
-            # === DAY COLUMN ===
-            day_key = days[i]
-            matched_key = None
-            for k in actual_days:
-                day_prefix = day_key.split('-')[0].lower()
-                if k.lower().startswith(day_prefix):
-                    matched_key = k
-                    break
+            # cabeçalho do dia: linha, nome, linha
+            draw.line([(x0 + CELL_LINE_PAD, y0 + 44), (x1 - CELL_LINE_PAD, y0 + 44)],
+                      fill=COLOR_GREEN, width=6)
+            draw_centered(draw, days[i].split('-')[0].upper(), cx, y0 + 110,
+                          font_day, COLOR_GREEN, tracking=3)
+            draw.line([(x0 + CELL_LINE_PAD, y0 + 142), (x1 - CELL_LINE_PAD, y0 + 142)],
+                      fill=COLOR_GREEN, width=6)
 
-            day_label = day_key.split('-')[0].upper()
-
-            # Decorative lines + day name
-            line_y_top = by + 22
-            draw.line([(inner_left, line_y_top), (inner_right, line_y_top)],
-                      fill=color_green, width=3)
-
-            day_label_y = line_y_top + 8
-            draw_text_centered(draw, day_label, (bx, day_label_y, bw, 40),
-                               font_day_header, color_green)
-
-            line_y_bot = day_label_y + 44
-            draw.line([(inner_left, line_y_bot), (inner_right, line_y_bot)],
-                      fill=color_green, width=3)
-
-            # Meal content
-            content_y = line_y_bot + 12
-            max_y = by + bh - 8
-
-            if matched_key and matched_key in menu_data:
-                day_data = menu_data[matched_key]
-                for meal_name, items in day_data.items():
-                    if content_y >= max_y:
-                        break
-                    draw_text_centered(draw, meal_name, (bx, content_y, bw, 26),
-                                       font_meal_label, color_green)
-                    content_y += 28
-
-                    for item in items:
-                        if content_y >= max_y:
-                            break
-                        wrapped = wrap_text(item, font_meal_item, inner_w)
-                        for line in wrapped:
-                            if content_y >= max_y:
-                                break
-                            draw_text_centered(draw, line,
-                                               (bx, content_y, bw, 22),
-                                               font_meal_item, color_green)
-                            content_y += 24
-                    content_y += 6
-
-        else:
-            # === AVISOS IMPORTANTES ===
-            # No lines at the top or bottom
-            title_y = by + 30
-            draw_text_centered(draw, "Avisos importantes",
-                               (bx, title_y, bw, 40),
-                               font_avisos_title, color_green)
-
-            avisos_lines = [
-                "O cardápio está sujeito",
-                "a ser alterado sem",
-                "aviso prévio, pois",
-                "dependemos da",
-                "entrega dos alimentos",
-                "frescos.",
-                "",
-                "Os lanches da manhã e",
-                "da tarde são o mesmo",
-            ]
-            ay = title_y + 44 + 18
-            for line in avisos_lines:
-                if line == "":
-                    ay += 14
+            # refeições
+            lines, f_item, f_label, _ = layout_day(day_datas[i], scale, max_text_w)
+            pitch, gap = LINE_PITCH * scale, MEAL_GAP * scale
+            y = y0 + FIRST_BASELINE
+            for kind, txt in lines:
+                if kind == 'gap':
+                    y += gap
                     continue
-                draw_text_centered(draw, line, (bx, ay, bw, 22),
-                                   font_avisos_text, color_green)
-                ay += 26
+                font = f_label if kind == 'label' else f_item
+                draw.text((cx, round(y)), txt, font=font, fill=COLOR_GREEN, anchor='ms')
+                y += pitch
+        else:
+            # avisos importantes
+            f_av_title = font_for_width('assistant_bold', "Avisos importantes",
+                                        min(350, cell_w - 40))
+            draw.text((cx, y0 + 88), "Avisos importantes", font=f_av_title,
+                      fill=COLOR_GREEN, anchor='ms')
+            f_av = get_font('assistant', 30)
+            ay = y0 + 192
+            for line in AVISOS_LINES:
+                if line:
+                    draw.text((cx, ay), line, font=f_av, fill=COLOR_GREEN, anchor='ms')
+                ay += 44
 
-    img.save(output_path, quality=95)
+    img.save(output_path)

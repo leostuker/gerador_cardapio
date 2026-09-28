@@ -1,19 +1,14 @@
-from PIL import Image
+from PIL import Image, ImageColor
+from image_generator import WIDTH, HEIGHT, HEADER_H, COLOR_BG
 
-img = Image.open('static/output/Cardapio_Integral.png')
-rgb_img = img.convert('RGB')
-bg_color = (253, 248, 240)  # #fdf8f0
+img = Image.open('static/output/Cardapio_Integral.png').convert('RGB')
+bg = ImageColor.getrgb(COLOR_BG)
 
-# Grid area is x: 35 to 1045, y: 200 to 1320
-found_gap = False
-for y in range(200, 1320):
-    for x in range(35, 1045):
-        if rgb_img.getpixel((x, y)) == bg_color:
-            found_gap = True
-            print(f"Gap found at {x}, {y}")
-            break
-    if found_gap:
-        break
+# A grade ocupa toda a largura, de HEADER_H até o fim da imagem
+grid = img.crop((0, HEADER_H, WIDTH, HEIGHT))
+colors = dict((c, n) for n, c in grid.getcolors(maxcolors=1_000_000))
 
-if not found_gap:
+if bg in colors:
+    print(f"Gap found! {colors[bg]} pixels with background color inside the grid")
+else:
     print("No gaps found!")
