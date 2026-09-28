@@ -17,6 +17,9 @@ COLOR_ORANGE = '#f6931d'       # título
 COLOR_YELLOW = '#f2ae1c'       # caixas amarelas
 COLOR_CREAM = '#fdecc8'        # caixas creme
 
+LOGO_POS = (68, 80)            # canto superior esquerdo do logo
+LOGO_MAX = (150, 150)          # tamanho máximo do logo (largura, altura)
+
 ITEM_SIZE = 28                 # tamanho base da fonte dos itens
 LINE_PITCH = 39                # distância entre linhas dos itens
 MEAL_GAP = 18                  # espaço extra entre Lanche e Almoço
@@ -226,8 +229,8 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
     # Logo
     try:
         logo = Image.open('static/logo.png').convert("RGBA")
-        logo.thumbnail((150, 150))
-        img.paste(logo, (68, 80), logo)
+        logo.thumbnail(LOGO_MAX)
+        img.paste(logo, LOGO_POS, logo)
     except Exception as e:
         print("Logo not found or error:", e)
 
