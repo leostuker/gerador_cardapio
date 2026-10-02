@@ -22,11 +22,54 @@
             <label for="date_str">Data Sugerida (Confirme ou Edite):</label>
             <input type="text" id="date_str" name="date_str" value="{{ date_str }}">
             
-            <label for="menu_text">Cole o texto do cardápio aqui:</label>
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 15px;">
+                <label for="menu_text" style="margin-top: 0;">Cole o texto do cardápio aqui:</label>
+                <button type="button" onclick="copyPrompt()" id="btnCopy" style="width: auto; padding: 8px 15px; margin: 0; background: #1b5a32; font-size: 14px;">Copiar Prompt Gemini</button>
+            </div>
             <textarea id="menu_text" name="menu_text" placeholder="**Cardápio Integral**&#10;**Segunda-feira**&#10;Lanche&#10;* Leite com chocolate..."></textarea>
             
             <button type="submit">Gerar Imagens</button>
         </form>
     </div>
+
+    <script>
+        const promptText = `Transcreva os cardápios das imagens em texto, seguindo rigorosamente as regras abaixo de formatação para que o meu sistema consiga ler os dados:
+
+**REGRAS:**
+1. Os nomes dos cardápios devem começar com a palavra "Cardápio" (ex: **Cardápio Integral**, **Cardápio Normal**).
+2. Em seguida, liste os dias da semana (ex: **Segunda-feira**, **Terça-feira**).
+3. Após o dia da semana, coloque o nome da refeição (ex: Lanche da Manhã, Almoço, Jantar).
+4. Os itens de cada refeição PRECISAM ser em formato de lista, começando com asterisco ou traço e espaço (ex: * Arroz ou - Feijão).
+5. Não inclua textos de introdução ou conclusão, apenas a transcrição.
+
+**EXEMPLO DE FORMATO ESPERADO:**
+
+**Cardápio Integral**
+
+**Segunda-feira**
+Lanche da Manhã
+* Biscoito de polvilho
+* Suco natural
+
+Almoço
+* Arroz
+* Feijão
+* Frango grelhado`;
+
+        function copyPrompt() {
+            navigator.clipboard.writeText(promptText).then(() => {
+                const btn = document.getElementById('btnCopy');
+                const oldText = btn.innerText;
+                btn.innerText = 'Copiado!';
+                btn.style.background = '#e28b17';
+                setTimeout(() => {
+                    btn.innerText = oldText;
+                    btn.style.background = '#1b5a32';
+                }, 2000);
+            }).catch(err => {
+                alert('Erro ao copiar: ' + err);
+            });
+        }
+    </script>
 </body>
 </html>
