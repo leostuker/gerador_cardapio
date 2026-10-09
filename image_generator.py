@@ -286,16 +286,25 @@ def generate_menu_image(menu_title, date_str, menu_data, output_path):
                       fill=COLOR_GREEN, width=6)
 
             # refeições
-            lines, f_item, f_label, _ = layout_day(day_datas[i], scale, max_text_w)
-            pitch, gap = LINE_PITCH * scale, MEAL_GAP * scale
-            y = y0 + FIRST_BASELINE
-            for kind, txt in lines:
-                if kind == 'gap':
-                    y += gap
-                    continue
-                font = f_label if kind == 'label' else f_item
-                draw.text((cx, round(y)), txt, font=font, fill=COLOR_GREEN, anchor='ms')
-                y += pitch
+            if not day_datas[i]:
+                # Tarja de feriado
+                banner_h = 80
+                center_y = y0 + 142 + (cell_h - 142) / 2
+                by0 = center_y - banner_h / 2
+                draw.rectangle([x0, by0, x1, by0 + banner_h], fill=COLOR_GREEN)
+                f_feriado = get_font('assistant_bold', 44)
+                draw.text((cx, center_y), "FERIADO", font=f_feriado, fill=COLOR_BG, anchor='mm')
+            else:
+                lines, f_item, f_label, _ = layout_day(day_datas[i], scale, max_text_w)
+                pitch, gap = LINE_PITCH * scale, MEAL_GAP * scale
+                y = y0 + FIRST_BASELINE
+                for kind, txt in lines:
+                    if kind == 'gap':
+                        y += gap
+                        continue
+                    font = f_label if kind == 'label' else f_item
+                    draw.text((cx, round(y)), txt, font=font, fill=COLOR_GREEN, anchor='ms')
+                    y += pitch
         else:
             # avisos importantes
             f_av_title = font_for_width('assistant_bold', "Avisos importantes",
