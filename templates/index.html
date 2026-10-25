@@ -1,39 +1,169 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador de Cardápio</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9; color: #333; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h1 { color: #1b5a32; }
-        label { font-weight: bold; display: block; margin-top: 15px; }
-        textarea, input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        textarea { height: 300px; font-family: monospace; }
-        button { background: #e28b17; color: white; border: none; padding: 15px 20px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; margin-top: 20px; width: 100%; }
-        button:hover { background: #d27914; }
-    </style>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Gerador de Cardápio</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap" rel="stylesheet">
+	<style>
+		*, *::before, *::after {
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: 'Ubuntu', sans-serif;
+			background-color: #333333;
+			color: #e0e0e0;
+			margin: 0;
+			padding: 30px 20px;
+			line-height: 1.6;
+		}
+
+		.container {
+			max-width: 900px;
+			margin: 0 auto;
+			background-color: #181818;
+			padding: 40px;
+			border-radius: 6px;
+			box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+		}
+
+		h1 {
+			color: #FFD700;
+			font-size: 2.4rem;
+			text-align: center;
+			margin-top: 0;
+			margin-bottom: 30px;
+			padding-bottom: 15px;
+			border-bottom: 2px solid #FFD700;
+		}
+
+		.form-group {
+			margin-bottom: 25px;
+		}
+
+		label {
+			display: block;
+			font-size: 1.25rem;
+			font-weight: 700;
+			color: #e0e0e0;
+			margin-bottom: 10px;
+		}
+
+		input[type="text"] {
+			width: 100%;
+			padding: 14px 18px;
+			font-family: 'Ubuntu', sans-serif;
+			font-size: 1.2rem;
+			background-color: #262626;
+			color: #ffffff;
+			border: 1px solid #444444;
+			border-radius: 4px;
+			transition: border-color 0.2s, box-shadow 0.2s;
+		}
+
+		input[type="text"]:focus,
+		textarea:focus {
+			border-color: #FFD700;
+			outline: none;
+			box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.25);
+		}
+
+		.textarea-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 10px;
+			gap: 15px;
+			flex-wrap: wrap;
+		}
+
+		.textarea-header label {
+			margin-bottom: 0;
+		}
+
+		.btn-copy {
+			background-color: transparent;
+			color: #FFD700;
+			border: 2px solid #FFD700;
+			padding: 10px 20px;
+			font-family: 'Ubuntu', sans-serif;
+			font-size: 1.05rem;
+			font-weight: 700;
+			border-radius: 4px;
+			cursor: pointer;
+			transition: all 0.2s ease;
+		}
+
+		.btn-copy:hover {
+			background-color: #FFD700;
+			color: #181818;
+		}
+
+		textarea {
+			width: 100%;
+			height: 340px;
+			padding: 16px 18px;
+			font-family: Consolas, 'Courier New', monospace;
+			font-size: 1.15rem;
+			line-height: 1.5;
+			background-color: #262626;
+			color: #ffffff;
+			border: 1px solid #444444;
+			border-radius: 4px;
+			resize: vertical;
+			transition: border-color 0.2s, box-shadow 0.2s;
+		}
+
+		.btn-submit {
+			background-color: #FFD700;
+			color: #181818;
+			border: none;
+			padding: 18px 24px;
+			font-family: 'Ubuntu', sans-serif;
+			font-size: 1.35rem;
+			font-weight: 700;
+			border-radius: 4px;
+			cursor: pointer;
+			width: 100%;
+			margin-top: 15px;
+			transition: background-color 0.2s ease, transform 0.1s ease;
+		}
+
+		.btn-submit:hover {
+			background-color: #e6c200;
+		}
+
+		.btn-submit:active {
+			transform: scale(0.99);
+		}
+	</style>
 </head>
 <body>
-    <div class="container">
-        <h1>Gerador de Cardápio Escolar v0.0.5</h1>
-        <form method="POST">
-            <label for="date_str">Data Sugerida (Confirme ou Edite):</label>
-            <input type="text" id="date_str" name="date_str" value="{{ date_str }}">
-            
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 15px;">
-                <label for="menu_text" style="margin-top: 0;">Cole o texto do cardápio aqui:</label>
-                <button type="button" onclick="copyPrompt()" id="btnCopy" style="width: auto; padding: 8px 15px; margin: 0; background: #1b5a32; font-size: 14px;">Copiar Prompt Gemini</button>
-            </div>
-            <textarea id="menu_text" name="menu_text" placeholder="**Cardápio Integral**&#10;**Segunda-feira**&#10;Lanche&#10;* Leite com chocolate..."></textarea>
-            
-            <button type="submit">Gerar Imagens</button>
-        </form>
-    </div>
+	<div class="container">
+		<h1>Gerador de Cardápio Escolar v0.0.5</h1>
+		<form method="POST">
+			<div class="form-group">
+				<label for="date_str">Data Sugerida (Confirme ou Edite):</label>
+				<input type="text" id="date_str" name="date_str" value="{{ date_str }}">
+			</div>
 
-    <script>
-        const promptText = `Transcreva os cardápios das imagens em texto, seguindo rigorosamente as regras abaixo de formatação para que o meu sistema consiga ler os dados:
+			<div class="form-group">
+				<div class="textarea-header">
+					<label for="menu_text">Cole o texto do cardápio aqui:</label>
+					<button type="button" onclick="copyPrompt()" id="btnCopy" class="btn-copy">Copiar Prompt Gemini</button>
+				</div>
+				<textarea id="menu_text" name="menu_text" placeholder="**Cardápio Integral**&#10;**Segunda-feira**&#10;Lanche&#10;* Leite com chocolate..."></textarea>
+			</div>
+
+			<button type="submit" class="btn-submit">Gerar Imagens</button>
+		</form>
+	</div>
+
+	<script>
+		const promptText = `Transcreva os cardápios das imagens em texto, seguindo rigorosamente as regras abaixo de formatação para que o meu sistema consiga ler os dados:
 
 **REGRAS:**
 1. Os nomes dos cardápios devem começar com a palavra "Cardápio" (ex: **Cardápio Integral**, **Cardápio Normal**).
@@ -56,20 +186,22 @@ Almoço
 * Feijão
 * Frango grelhado`;
 
-        function copyPrompt() {
-            navigator.clipboard.writeText(promptText).then(() => {
-                const btn = document.getElementById('btnCopy');
-                const oldText = btn.innerText;
-                btn.innerText = 'Copiado!';
-                btn.style.background = '#e28b17';
-                setTimeout(() => {
-                    btn.innerText = oldText;
-                    btn.style.background = '#1b5a32';
-                }, 2000);
-            }).catch(err => {
-                alert('Erro ao copiar: ' + err);
-            });
-        }
-    </script>
+		function copyPrompt() {
+			navigator.clipboard.writeText(promptText).then(() => {
+				const button = document.getElementById('btnCopy');
+				const originalText = button.innerText;
+				button.innerText = 'Copiado!';
+				button.style.backgroundColor = '#FFD700';
+				button.style.color = '#181818';
+				setTimeout(() => {
+					button.innerText = originalText;
+					button.style.backgroundColor = 'transparent';
+					button.style.color = '#FFD700';
+				}, 2000);
+			}).catch(error => {
+				alert('Erro ao copiar: ' + error);
+			});
+		}
+	</script>
 </body>
 </html>
